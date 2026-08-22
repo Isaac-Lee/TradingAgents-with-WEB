@@ -64,20 +64,23 @@ SSE (`text/event-stream`). 이벤트 스키마는 아래 "SSE 이벤트" 섹션.
   {
     "ticker": "AAPL",
     "date": "2026-08-22",
-    "path": "results/AAPL/2026-08-22",
+    "path": "AAPL/2026-08-22",
     "decision": "BUY"
   }
 ]
 ```
-`results_dir`(설정값, 기본 `results/`) 하위를 스캔. `decision`은
+`results_dir`(설정값 — `TRADINGAGENTS_RESULTS_DIR` 또는 DEFAULT_CONFIG 기본) 하위를 스캔.
+**`path`는 results_dir 기준 상대경로다** (`results/` 같은 접두사를 붙이지 않는다 —
+results_dir이 `results/`가 아닐 수 있으므로). 프론트는 이 값을 `/api/report?path=`와
+`/api/history/compare?paths=`에 그대로 넘긴다. `decision`은
 `tradingagents/reporting.py`의 `parse_decision()`으로 `final_trade_decision.md`에서
 뽑는다. 못 찾으면 `null`.
 
-### `GET /api/report?path=results/AAPL/2026-08-22`
+### `GET /api/report?path=AAPL/2026-08-22`
 `complete_report.md` 원문을 `{"content": "...markdown..."}`으로 반환. `path`는 반드시
 `results_dir`의 하위 경로인지 `Path.resolve()`로 검증 후 거부/허용 — path traversal 방지.
 
-### `GET /api/history/compare?paths=results/AAPL/2026-08-22,results/AAPL/2026-08-15`
+### `GET /api/history/compare?paths=AAPL/2026-08-22,AAPL/2026-08-15`
 ```json
 [
   {"ticker": "AAPL", "date": "2026-08-22", "decision": "BUY", "content": "...complete_report.md..."}
@@ -101,11 +104,12 @@ SSE (`text/event-stream`). 이벤트 스키마는 아래 "SSE 이벤트" 섹션.
 {"type": "tool", "name": "get_YFin_data", "args": {"symbol": "AAPL"}}
 {"type": "report", "section": "market_report", "content": "...markdown..."}
 {"type": "stats", "llm_calls": 12, "tokens": 34567, "elapsed_sec": 91.2}
-{"type": "done", "status": "completed|stopped|error", "decision": "BUY", "path": "results/AAPL/2026-08-22"}
+{"type": "done", "status": "completed|stopped|error", "decision": "BUY", "path": "AAPL/2026-08-22"}
 ```
 `status.state`는 `MessageBuffer.agent_status`의 값을 그대로 옮긴 것. `report.section`은
 `ANALYST_REPORT_MAP`/`REPORT_SECTIONS`(`cli/main.py`)에 있는 키와 동일해야 한다 — 프론트
-탭 렌더링이 이 키로 분기한다.
+탭 렌더링이 이 키로 분기한다. `done.path`도 results_dir 기준 상대경로 (`/api/history`의
+`path`와 동일한 형태).
 
 ## 컬러 토큰 (다크 테마 고정)
 
