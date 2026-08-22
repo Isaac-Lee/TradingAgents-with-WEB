@@ -60,7 +60,7 @@
 
 ## 완료 검증 기록
 
-**검증일:** 2025-08-22
+**검증일:** 2026-08-22
 **검증자:** sw-developer
 **환경:** macOS 14.7, Python 3.14.6, feature/webapp 브랜치
 **서버 실행:** `python -m uvicorn webapp.server:app --host 127.0.0.1 --port 8765`
@@ -75,7 +75,7 @@
 | `/api/history` | ✅ PASS | 기존 results_dir 스캔 결과 2건 반환 (ABCL, FAKE) |
 | `/api/report?path=` | ✅ PASS | complete_report.md 없는 항목 → 404 (예상 동작) |
 | `/api/history/compare` | ✅ PASS | complete_report.md 없는 항목 → 404 (예상 동작) |
-| `/api/ohlcv?ticker=AAPL&date=2025-01-01` | ✅ PASS | 2019-08~2025-01 OHLCV 배열 반환 |
+| `/api/ohlcv?ticker=AAPL&date=2026-01-01` | ✅ PASS | 2019-08~2025-01 OHLCV 배열 반환 |
 | `/api/runs` (API 키 없음) | ✅ PASS | `{"error":"OPENAI_API_KEY not set"}` 400 반환 |
 | `/` index.html | ✅ PASS | 다크 테마 SPA 렌더링, CSS/JS 로드 정상 |
 | 런 시작 → SSE → 완료 | ⚠️ SKIP | 실제 LLM API 키 없어서 400 에러만 확인 |
