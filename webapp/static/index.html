@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradingAgents</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <h1>TradingAgents</h1>
+  </header>
+
+  <div class="container">
+    <!-- Error banner -->
+    <div id="error-banner" class="error-banner" style="display:none"></div>
+
+    <!-- Run settings form -->
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="ticker">Ticker</label>
+          <input type="text" id="ticker" value="AAPL">
+        </div>
+        <div class="form-group">
+          <label for="analysis-date">Analysis Date</label>
+          <input type="date" id="analysis-date">
+        </div>
+        <div class="form-group">
+          <label>Analysts</label>
+          <div id="analysts-group" class="checkbox-group"></div>
+        </div>
+        <div class="form-group">
+          <label for="research-depth">Research Depth</label>
+          <select id="research-depth"></select>
+        </div>
+        <div class="form-group">
+          <label for="llm-provider">LLM Provider</label>
+          <select id="llm-provider"></select>
+        </div>
+        <div class="form-group">
+          <label for="backend-url">Backend URL</label>
+          <input type="text" id="backend-url">
+        </div>
+        <div class="form-group">
+          <label for="shallow-thinker">Shallow Thinker</label>
+          <select id="shallow-thinker"></select>
+        </div>
+        <div class="form-group">
+          <label for="deep-thinker">Deep Thinker</label>
+          <select id="deep-thinker"></select>
+        </div>
+        <div class="form-group">
+          <label for="output-language">Output Language</label>
+          <input type="text" id="output-language" value="English">
+        </div>
+      </div>
+      <div style="margin-top:0.75rem; display:flex; gap:0.5rem;">
+        <button id="btn-start" class="btn btn-primary">Start</button>
+        <button id="btn-stop" class="btn btn-danger" disabled>Stop</button>
+      </div>
+    </div>
+
+    <!-- Agent status -->
+    <div class="card">
+      <label>Agent Status</label>
+      <div id="agent-grid" class="agent-grid"></div>
+    </div>
+
+    <!-- Report tabs -->
+    <div class="card">
+      <div id="report-tabs" class="tabs"></div>
+      <div id="report-panels"></div>
+    </div>
+
+    <!-- Message / tool log -->
+    <div class="card">
+      <label>Messages &amp; Tools</label>
+      <div id="log" class="log"></div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="card">
+      <div id="stats-bar" class="stats-bar"></div>
+      <div id="done-banner" class="done-banner" style="display:none"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

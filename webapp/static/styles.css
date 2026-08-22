@@ -1,0 +1,282 @@
+/* Dark theme color tokens — TradingAgents Web */
+:root {
+  --bg: #212529;
+  --surface: #343a40;
+  --surface-raised: #495057;
+  --border: #495057;
+  --border-strong: #6c757d;
+  --muted: #6c757d;
+  --muted-strong: #adb5bd;
+  --fg-soft: #ced4da;
+  --fg: #e9ecef;
+  --fg-strong: #f8f9fa;
+  --danger: #ef233c;
+  --success: #2ec27e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--fg-strong);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+label {
+  font-size: 0.85rem;
+  color: var(--fg-soft);
+  font-weight: 500;
+}
+
+input[type="text"],
+input[type="date"],
+select,
+textarea {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--fg);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--fg-soft);
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.checkbox-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--border-strong);
+  color: var(--fg-strong);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: var(--fg-strong);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-banner {
+  background: rgba(239, 35, 60, 0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.5rem;
+}
+
+.agent-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.agent-badge .name {
+  color: var(--fg-soft);
+}
+
+.agent-badge .state {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.state-pending   { color: var(--muted); }
+.state-in_progress { color: var(--border-strong); }
+.state-completed { color: var(--fg-strong); }
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--border-strong);
+}
+
+.tab-panel {
+  display: none;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.log {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  max-height: 240px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.log-entry {
+  padding: 0.15rem 0;
+  border-bottom: 1px solid rgba(73, 80, 87, 0.4);
+}
+
+.log-entry:last-child { border-bottom: none; }
+
+.log-kind-system   { color: var(--muted); }
+.log-kind-agent    { color: var(--fg-soft); }
+.log-kind-data     { color: var(--muted-strong); }
+.log-kind-control  { color: var(--border-strong); }
+.log-kind-user     { color: var(--fg); }
+.log-kind-tool     { color: var(--fg-soft); }
+
+.stats-bar {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--muted-strong);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.decision-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.decision-buy  { background: rgba(46, 194, 126, 0.15); color: var(--success); }
+.decision-sell { background: rgba(239, 35, 60, 0.15); color: var(--danger); }
+.decision-hold { background: rgba(173, 181, 189, 0.15); color: var(--muted-strong); }
+
+.report-content h1, .report-content h2, .report-content h3 {
+  margin: 0.5rem 0 0.25rem;
+  color: var(--fg-strong);
+}
+
+.report-content p { margin: 0.3rem 0; }
+
+.report-content ul {
+  margin: 0.3rem 0;
+  padding-left: 1.2rem;
+}
+
+.report-content li { margin: 0.15rem 0; }
+
+.report-content strong { color: var(--fg-strong); }
+
+.report-content em { color: var(--fg-soft); }
+
+.done-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-raised);
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}

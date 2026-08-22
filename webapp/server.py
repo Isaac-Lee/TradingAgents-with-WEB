@@ -34,10 +34,20 @@ _APP_HOST = "127.0.0.1"
 
 app = FastAPI(title="TradingAgents Web")
 
-# Mount static files if the directory exists (created by Card 04)
+# Mount static files under /static/ (created by Card 04)
 _static_dir = Path(__file__).with_suffix("").parent / "static"
 if _static_dir.is_dir():
-    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+@app.get("/")
+def serve_index():
+    """Serve the main SPA page."""
+    index_path = _static_dir / "index.html"
+    if index_path.is_file():
+        from fastapi.responses import FileResponse
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail="index.html not found")
 
 # Run storage: at most one active run at a time
 _runs: dict[str, RunHandle] = {}
