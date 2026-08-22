@@ -25,8 +25,10 @@ from cli.utils import (
     RESEARCH_DEPTH_OPTIONS,
     _llm_provider_table,
 )
+from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.api_key_env import get_api_key_env
 from tradingagents.llm_clients.model_catalog import get_model_options
+from tradingagents.reporting import parse_decision
 from webapp.runner import RunHandle, RunRequest, start_run
 
 _APP_PORT = 8765
@@ -38,6 +40,26 @@ app = FastAPI(title="TradingAgents Web")
 _static_dir = Path(__file__).with_suffix("").parent / "static"
 if _static_dir.is_dir():
     app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+def _results_dir() -> Path:
+    return Path(DEFAULT_CONFIG["results_dir"]).expanduser().resolve()
+
+
+def _validate_report_path(path: str) -> Path:
+    """Resolve a relative path under results_dir and block traversal.
+
+    Returns the resolved file path on success, raises HTTPException(400) on
+    illegal traversal.
+    """
+    base = _results_dir()
+    target = (base / path).resolve()
+    # Ensure target is strictly under base (or equals base)
+    try:
+        target.relative_to(base)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid path")
+    return target
 
 
 @app.get("/")
@@ -215,6 +237,81 @@ def stop_run(run_id: str):
 
     handle.stop_event.set()
     return {"ok": True}
+
+
+@app.get("/api/history")
+def get_history():
+    """Scan results_dir for past runs."""
+    base = _results_dir()
+    results = []
+
+    if not base.is_dir():
+        return results
+
+    for ticker_dir in sorted(base.iterdir()):
+        if not ticker_dir.is_dir():
+            continue
+        for date_dir in sorted(ticker_dir.iterdir()):
+            if not date_dir.is_dir():
+                continue
+            decision_path = date_dir / "final_trade_decision.md"
+            decision = None
+            if decision_path.is_file():
+                text = decision_path.read_text(encoding="utf-8")
+                decision = parse_decision(text)
+            rel = str(Path(ticker_dir.name) / date_dir.name)
+            results.append({
+                "ticker": ticker_dir.name,
+                "date": date_dir.name,
+                "path": rel,
+                "decision": decision,
+            })
+
+    return results
+
+
+@app.get("/api/report")
+def get_report(path: str = Query(...)):
+    """Return the content of a complete_report.md."""
+    target_dir = _validate_report_path(path)
+    report_file = target_dir / "complete_report.md"
+    if not report_file.is_file():
+        raise HTTPException(status_code=404, detail="report not found")
+    content = report_file.read_text(encoding="utf-8")
+    return {"content": content}
+
+
+@app.get("/api/history/compare")
+def compare_history(paths: str = Query(...)):
+    """Compare 2–4 historical reports."""
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    if len(path_list) < 2 or len(path_list) > 4:
+        raise HTTPException(status_code=400, detail="paths must contain 2–4 entries")
+
+    results = []
+    for p in path_list:
+        target_dir = _validate_report_path(p)
+        report_file = target_dir / "complete_report.md"
+        if not report_file.is_file():
+            raise HTTPException(status_code=404, detail=f"report not found: {p}")
+
+        decision_path = target_dir / "final_trade_decision.md"
+        decision = None
+        if decision_path.is_file():
+            decision = parse_decision(decision_path.read_text(encoding="utf-8"))
+
+        content = report_file.read_text(encoding="utf-8")
+        parts = p.split("/")
+        ticker = parts[0] if parts else ""
+        date = parts[1] if len(parts) > 1 else ""
+        results.append({
+            "ticker": ticker,
+            "date": date,
+            "decision": decision,
+            "content": content,
+        })
+
+    return results
 
 
 def main() -> None:
