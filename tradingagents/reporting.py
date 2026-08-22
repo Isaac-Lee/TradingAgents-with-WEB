@@ -99,3 +99,16 @@ def write_report_tree(final_state: dict, ticker: str, save_path) -> Path:
     header = f"# Trading Analysis Report: {ticker}\n\nGenerated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
     (save_path / "complete_report.md").write_text(header + "\n\n".join(sections), encoding="utf-8")
     return save_path / "complete_report.md"
+
+
+import re
+
+_DECISION_RE = re.compile(r"\b(BUY|SELL|HOLD)\b", re.IGNORECASE)
+
+
+def parse_decision(text: str | None) -> str | None:
+    """Extract BUY/SELL/HOLD from a final_trade_decision text, or None if absent."""
+    if not text:
+        return None
+    match = _DECISION_RE.search(text)
+    return match.group(1).upper() if match else None

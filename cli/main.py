@@ -826,11 +826,11 @@ def display_complete_report(final_state):
             console.print(Panel(Markdown(risk["judge_decision"]), title="Portfolio Manager", border_style="blue", padding=(1, 2)))
 
 
-def update_research_team_status(status):
+def update_research_team_status(status, buffer=message_buffer):
     """Update status for research team members (not Trader)."""
     research_team = ["Bull Researcher", "Bear Researcher", "Research Manager"]
     for agent in research_team:
-        message_buffer.update_agent_status(agent, status)
+        buffer.update_agent_status(agent, status)
 
 
 # Ordered list of analysts for status transitions
