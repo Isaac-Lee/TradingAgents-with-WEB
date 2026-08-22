@@ -164,20 +164,22 @@ def select_analysts(asset_type: AssetType = AssetType.STOCK) -> list[AnalystType
     return choices
 
 
+# Research-depth options shared by the interactive picker and the webapp.
+# Order matters: shallow -> deep.
+RESEARCH_DEPTH_OPTIONS = [
+    ("Shallow - Quick research, few debate and strategy discussion rounds", 1),
+    ("Medium - Middle ground, moderate debate rounds and strategy discussion", 3),
+    ("Deep - Comprehensive research, in depth debate and strategy discussion", 5),
+]
+
+
 def select_research_depth() -> int:
     """Select research depth using an interactive selection."""
-
-    # Define research depth options with their corresponding values
-    DEPTH_OPTIONS = [
-        ("Shallow - Quick research, few debate and strategy discussion rounds", 1),
-        ("Medium - Middle ground, moderate debate rounds and strategy discussion", 3),
-        ("Deep - Comprehensive research, in depth debate and strategy discussion", 5),
-    ]
-
     choice = questionary.select(
         "Select Your [Research Depth]:",
         choices=[
-            questionary.Choice(display, value=value) for display, value in DEPTH_OPTIONS
+            questionary.Choice(display, value=value)
+            for display, value in RESEARCH_DEPTH_OPTIONS
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style(
