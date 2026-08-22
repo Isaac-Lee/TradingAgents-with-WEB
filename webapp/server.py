@@ -25,6 +25,7 @@ from cli.utils import (
     RESEARCH_DEPTH_OPTIONS,
     _llm_provider_table,
 )
+from tradingagents.dataflows.stockstats_utils import load_ohlcv
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.api_key_env import get_api_key_env
 from tradingagents.llm_clients.model_catalog import get_model_options
@@ -312,6 +313,47 @@ def compare_history(paths: str = Query(...)):
         })
 
     return results
+
+
+@app.get("/api/ohlcv")
+def get_ohlcv(
+    ticker: str = Query(...),
+    date: str = Query(...),
+):
+    """Return OHLCV data for a ticker up to a given date."""
+    import pandas as pd
+
+    try:
+        df = load_ohlcv(ticker, date)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    if df.empty:
+        return []
+
+    # Normalize column names to lower case for output
+    records = []
+    for _, row in df.iterrows():
+        record = {
+            "date": str(row.get("Date", "")),
+            "open": _to_float(row.get("Open")),
+            "high": _to_float(row.get("High")),
+            "low": _to_float(row.get("Low")),
+            "close": _to_float(row.get("Close")),
+            "volume": _to_float(row.get("Volume")),
+        }
+        records.append(record)
+
+    return records
+
+
+def _to_float(val):
+    if val is None or (isinstance(val, float) and val != val):  # NaN check
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
 
 
 def main() -> None:

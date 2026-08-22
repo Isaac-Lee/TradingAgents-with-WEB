@@ -296,11 +296,29 @@
       panel.innerHTML = '<em style="color:var(--muted)">Waiting for report...</em>';
       reportPanels.appendChild(panel);
     });
+
+    // Chart tab
+    const chartTab = document.createElement('div');
+    chartTab.className = 'tab';
+    chartTab.textContent = 'Chart';
+    chartTab.dataset.section = 'chart';
+    chartTab.addEventListener('click', () => activateTab('chart'));
+    reportTabs.appendChild(chartTab);
   }
 
   function activateTab(key) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.section === key));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + key));
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      const isTarget = p.id === 'panel-' + key || (key === 'chart' && p.id === 'chart-panel');
+      p.classList.toggle('active', isTarget);
+      p.style.display = isTarget ? 'block' : 'none';
+    });
+    const chartPanel = el('chart-panel');
+    if (key === 'chart' && chartPanel) {
+      chartPanel.style.display = 'block';
+    } else if (chartPanel) {
+      chartPanel.style.display = 'none';
+    }
   }
 
   function updateReportPanel(section) {
@@ -339,6 +357,83 @@
     }
     doneBanner.innerHTML = html;
     doneBanner.style.display = 'flex';
+
+    // Load chart after run completes
+    loadChart();
+  }
+
+  // ---------- Chart ----------
+  let chartInstance = null;
+  let seriesInstance = null;
+
+  async function loadChart() {
+    const ticker = tickerEl.value.trim();
+    const date = dateEl.value;
+    if (!ticker || !date) return;
+
+    try {
+      const res = await fetch(`/api/ohlcv?ticker=${encodeURIComponent(ticker)}&date=${encodeURIComponent(date)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) return;
+      renderChart(data);
+    } catch (e) {
+      // ignore chart errors
+    }
+  }
+
+  function renderChart(data) {
+    const container = el('chart-panel');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const chart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: 300,
+      layout: {
+        background: { color: 'transparent' },
+        textColor: getComputedStyle(document.body).getPropertyValue('--fg').trim() || '#e9ecef',
+      },
+      grid: {
+        vertLines: { color: 'rgba(73, 80, 87, 0.3)' },
+        horzLines: { color: 'rgba(73, 80, 87, 0.3)' },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(73, 80, 87, 0.5)',
+      },
+      timeScale: {
+        borderColor: 'rgba(73, 80, 87, 0.5)',
+        timeVisible: false,
+      },
+    });
+
+    const candle = chart.addCandlestickSeries({
+      upColor: getComputedStyle(document.body).getPropertyValue('--success').trim() || '#2ec27e',
+      downColor: getComputedStyle(document.body).getPropertyValue('--danger').trim() || '#ef233c',
+      borderUpColor: getComputedStyle(document.body).getPropertyValue('--success').trim() || '#2ec27e',
+      borderDownColor: getComputedStyle(document.body).getPropertyValue('--danger').trim() || '#ef233c',
+      wickUpColor: getComputedStyle(document.body).getPropertyValue('--success').trim() || '#2ec27e',
+      wickDownColor: getComputedStyle(document.body).getPropertyValue('--danger').trim() || '#ef233c',
+    });
+
+    const seriesData = data.map(d => ({
+      time: d.date,
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+    }));
+
+    candle.setData(seriesData);
+    chart.timeScale().fitContent();
+
+    chartInstance = chart;
+    seriesInstance = candle;
+
+    const ro = new ResizeObserver(() => {
+      chart.applyOptions({ width: container.clientWidth, height: 300 });
+    });
+    ro.observe(container);
   }
 
   // ---------- Markdown (minimal) ----------
