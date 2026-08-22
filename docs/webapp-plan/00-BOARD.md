@@ -55,3 +55,41 @@
 모든 카드가 Done이면 `run` 스킬 또는 `python -m webapp.desktop`으로 전체 플로우
 (런 시작 → 실시간 상태 → 리포트 → 히스토리 → 차트)를 한 번 수동으로 확인하고 이 문서에
 결과를 남긴다.
+
+---
+
+## 완료 검증 기록
+
+**검증일:** 2025-08-22
+**검증자:** sw-developer
+**환경:** macOS 14.7, Python 3.14.6, feature/webapp 브랜치
+**서버 실행:** `python -m uvicorn webapp.server:app --host 127.0.0.1 --port 8765`
+
+### 확인 항목
+
+| 항목 | 결과 | 비고 |
+|------|------|------|
+| 서버 기동 | ✅ PASS | 127.0.0.1:8765, uvicorn 백그라운드 스레드 |
+| `/api/options` | ✅ PASS | providers/analysts/research_depth/asset_types 반환 |
+| `/api/options/models` | ✅ PASS | openai/quick → GPT-5.4 Mini 등 모델 목록 반환 |
+| `/api/history` | ✅ PASS | 기존 results_dir 스캔 결과 2건 반환 (ABCL, FAKE) |
+| `/api/report?path=` | ✅ PASS | complete_report.md 없는 항목 → 404 (예상 동작) |
+| `/api/history/compare` | ✅ PASS | complete_report.md 없는 항목 → 404 (예상 동작) |
+| `/api/ohlcv?ticker=AAPL&date=2025-01-01` | ✅ PASS | 2019-08~2025-01 OHLCV 배열 반환 |
+| `/api/runs` (API 키 없음) | ✅ PASS | `{"error":"OPENAI_API_KEY not set"}` 400 반환 |
+| `/` index.html | ✅ PASS | 다크 테마 SPA 렌더링, CSS/JS 로드 정상 |
+| 런 시작 → SSE → 완료 | ⚠️ SKIP | 실제 LLM API 키 없어서 400 에러만 확인 |
+| 정지 버튼 | ⚠️ SKIP | 실제 실행 없이 확인 불가 |
+| 히스토리 리포트 열기 | ⚠️ SKIP | results_dir에 complete_report.md 없음 |
+| 차트 탭 | ⚠️ SKIP | 실제 런 완료 후 loadChart() 호출 필요 |
+
+### 발견 이슈
+
+- **히스토리 없음:** results_dir에 완전한 런 결과(complete_report.md)가 없어 리포트 열기/비교 테스트는 불가. 이는 정상 동작이며 실제 런 후 확인 가능.
+- **결정 파일 없음:** 일부 히스토리 항목에 `final_trade_decision.md`가 없어 decision이 null. 정상 동작.
+
+### 회귀 테스트
+
+```
+pytest tests/ → 611 passed, 2 skipped
+```
