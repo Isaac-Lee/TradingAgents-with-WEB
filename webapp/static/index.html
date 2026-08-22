@@ -85,6 +85,19 @@
       <div id="stats-bar" class="stats-bar"></div>
       <div id="done-banner" class="done-banner" style="display:none"></div>
     </div>
+
+    <!-- History -->
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <label>History</label>
+        <div>
+          <button id="btn-history-refresh" class="btn btn-primary" style="padding:0.35rem 0.7rem; font-size:0.8rem;">Refresh</button>
+          <button id="btn-history-compare" class="btn btn-primary" style="padding:0.35rem 0.7rem; font-size:0.8rem;" disabled>Compare Selected</button>
+        </div>
+      </div>
+      <div id="history-list" class="history-list"></div>
+      <div id="history-view" class="history-view" style="display:none;"></div>
+    </div>
   </div>
 
   <script src="/static/vendor/lightweight-charts.js"></script>

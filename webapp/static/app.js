@@ -28,6 +28,12 @@
   const logEl = el('log');
   const statsBar = el('stats-bar');
   const doneBanner = el('done-banner');
+  const historyList = el('history-list');
+  const historyView = el('history-view');
+  const btnHistoryRefresh = el('btn-history-refresh');
+  const btnHistoryCompare = el('btn-history-compare');
+
+  const selectedHistoryPaths = new Set();
 
   const ALL_AGENTS = [
     'Market Analyst', 'Sentiment Analyst', 'News Analyst', 'Fundamentals Analyst',
@@ -55,6 +61,7 @@
     fetchOptions();
     setupListeners();
     resetUI();
+    fetchHistory();
   }
 
   function resetUI() {
@@ -165,6 +172,8 @@
 
     btnStart.addEventListener('click', startRun);
     btnStop.addEventListener('click', stopRun);
+    btnHistoryRefresh.addEventListener('click', fetchHistory);
+    btnHistoryCompare.addEventListener('click', compareSelectedHistory);
   }
 
   // ---------- Run lifecycle ----------
@@ -316,6 +325,7 @@
     const chartPanel = el('chart-panel');
     if (key === 'chart' && chartPanel) {
       chartPanel.style.display = 'block';
+      loadChart();
     } else if (chartPanel) {
       chartPanel.style.display = 'none';
     }
@@ -360,6 +370,138 @@
 
     // Load chart after run completes
     loadChart();
+    if (msg.status === 'completed') fetchHistory();
+  }
+
+  // ---------- History ----------
+  async function fetchHistory() {
+    try {
+      const res = await fetch('/api/history');
+      if (!res.ok) return;
+      const items = await res.json();
+      renderHistoryList(items);
+    } catch (e) {
+      // ignore — history is best-effort
+    }
+  }
+
+  function renderHistoryList(items) {
+    selectedHistoryPaths.clear();
+    updateCompareButton();
+    historyView.style.display = 'none';
+    historyView.innerHTML = '';
+
+    if (!items || items.length === 0) {
+      historyList.innerHTML = '<div class="history-empty">No past runs yet.</div>';
+      return;
+    }
+
+    historyList.innerHTML = '';
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.addEventListener('change', () => {
+        if (cb.checked) selectedHistoryPaths.add(item.path);
+        else selectedHistoryPaths.delete(item.path);
+        updateCompareButton();
+      });
+      row.appendChild(cb);
+
+      const ticker = document.createElement('span');
+      ticker.className = 'ticker';
+      ticker.textContent = item.ticker;
+      row.appendChild(ticker);
+
+      const date = document.createElement('span');
+      date.className = 'date';
+      date.textContent = item.date;
+      row.appendChild(date);
+
+      if (item.decision) {
+        const cls = item.decision === 'BUY' ? 'decision-buy' : item.decision === 'SELL' ? 'decision-sell' : 'decision-hold';
+        const badge = document.createElement('span');
+        badge.className = `decision-badge ${cls}`;
+        badge.textContent = item.decision;
+        row.appendChild(badge);
+      } else {
+        const badge = document.createElement('span');
+        badge.style.marginRight = 'auto';
+        badge.style.color = 'var(--muted)';
+        badge.style.fontSize = '0.8rem';
+        badge.textContent = 'N/A';
+        row.appendChild(badge);
+      }
+
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'btn btn-primary';
+      viewBtn.style.padding = '0.3rem 0.6rem';
+      viewBtn.style.fontSize = '0.8rem';
+      viewBtn.textContent = 'View';
+      viewBtn.addEventListener('click', () => viewHistoryReport(item));
+      row.appendChild(viewBtn);
+
+      historyList.appendChild(row);
+    });
+  }
+
+  function updateCompareButton() {
+    btnHistoryCompare.disabled = selectedHistoryPaths.size < 2 || selectedHistoryPaths.size > 4;
+  }
+
+  async function viewHistoryReport(item) {
+    try {
+      const res = await fetch(`/api/report?path=${encodeURIComponent(item.path)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        showHistoryView(`<div class="history-empty">${esc(data.error || 'Report not found')}</div>`);
+        return;
+      }
+      showHistoryView(`
+        <button class="btn btn-close" onclick="this.closest('.history-view').style.display='none'">Close</button>
+        <h3 style="margin:0 0 0.5rem; color:var(--fg-strong);">${esc(item.ticker)} — ${esc(item.date)}</h3>
+        <div class="report-content">${renderMarkdown(data.content)}</div>
+      `);
+    } catch (e) {
+      showHistoryView(`<div class="history-empty">Failed to load report.</div>`);
+    }
+  }
+
+  async function compareSelectedHistory() {
+    const paths = Array.from(selectedHistoryPaths);
+    if (paths.length < 2 || paths.length > 4) return;
+
+    try {
+      const res = await fetch(`/api/history/compare?paths=${encodeURIComponent(paths.join(','))}`);
+      const data = await res.json();
+      if (!res.ok) {
+        showHistoryView(`<div class="history-empty">${esc(data.error || 'Compare failed')}</div>`);
+        return;
+      }
+      const columns = data.map(run => {
+        const cls = run.decision === 'BUY' ? 'decision-buy' : run.decision === 'SELL' ? 'decision-sell' : 'decision-hold';
+        const badge = run.decision ? `<span class="decision-badge ${cls}">${esc(run.decision)}</span>` : '';
+        return `
+          <div class="compare-column">
+            <h3>${esc(run.ticker)} — ${esc(run.date)} ${badge}</h3>
+            <div class="report-content">${renderMarkdown(run.content)}</div>
+          </div>
+        `;
+      }).join('');
+      showHistoryView(`
+        <button class="btn btn-close" onclick="this.closest('.history-view').style.display='none'">Close</button>
+        <div class="compare-grid">${columns}</div>
+      `);
+    } catch (e) {
+      showHistoryView(`<div class="history-empty">Failed to load comparison.</div>`);
+    }
+  }
+
+  function showHistoryView(html) {
+    historyView.innerHTML = html;
+    historyView.style.display = 'block';
   }
 
   // ---------- Chart ----------

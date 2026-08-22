@@ -298,7 +298,7 @@ def _run_worker(request: RunRequest, handle: RunHandle) -> None:
 
         decision_text = final_state.get("final_trade_decision", "")
         decision = parse_decision(decision_text)
-        rel_path = f"results/{request.ticker}/{request.analysis_date}"
+        rel_path = f"{request.ticker}/{request.analysis_date}"
 
         events.put(
             {

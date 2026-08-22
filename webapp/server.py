@@ -240,6 +240,14 @@ def stop_run(run_id: str):
     return {"ok": True}
 
 
+def _read_decision(run_dir: Path) -> str | None:
+    """Read the portfolio manager's decision file written by write_report_tree()."""
+    decision_path = run_dir / "5_portfolio" / "decision.md"
+    if not decision_path.is_file():
+        return None
+    return parse_decision(decision_path.read_text(encoding="utf-8"))
+
+
 @app.get("/api/history")
 def get_history():
     """Scan results_dir for past runs."""
@@ -255,11 +263,7 @@ def get_history():
         for date_dir in sorted(ticker_dir.iterdir()):
             if not date_dir.is_dir():
                 continue
-            decision_path = date_dir / "final_trade_decision.md"
-            decision = None
-            if decision_path.is_file():
-                text = decision_path.read_text(encoding="utf-8")
-                decision = parse_decision(text)
+            decision = _read_decision(date_dir)
             rel = str(Path(ticker_dir.name) / date_dir.name)
             results.append({
                 "ticker": ticker_dir.name,
@@ -296,10 +300,7 @@ def compare_history(paths: str = Query(...)):
         if not report_file.is_file():
             raise HTTPException(status_code=404, detail=f"report not found: {p}")
 
-        decision_path = target_dir / "final_trade_decision.md"
-        decision = None
-        if decision_path.is_file():
-            decision = parse_decision(decision_path.read_text(encoding="utf-8"))
+        decision = _read_decision(target_dir)
 
         content = report_file.read_text(encoding="utf-8")
         parts = p.split("/")

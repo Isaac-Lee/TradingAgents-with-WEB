@@ -111,7 +111,7 @@ def test_fake_stream_emits_contract_events():
     assert len(done) == 1
     assert done[0]["status"] == "completed"
     assert done[0]["decision"] == "BUY"
-    assert done[0]["path"] == "results/FAKE/2026-01-01"
+    assert done[0]["path"] == "FAKE/2026-01-01"
 
 
 def test_stop_event_emits_stopped():

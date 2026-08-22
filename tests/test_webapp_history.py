@@ -21,7 +21,8 @@ def fake_results(monkeypatch, tmp_path):
     aapl_dir = tmp_path / "AAPL" / "2026-01-01"
     aapl_dir.mkdir(parents=True)
     (aapl_dir / "complete_report.md").write_text("# AAPL Report\n\nBUY signal.", encoding="utf-8")
-    (aapl_dir / "final_trade_decision.md").write_text("Final decision: **BUY**", encoding="utf-8")
+    (aapl_dir / "5_portfolio").mkdir()
+    (aapl_dir / "5_portfolio" / "decision.md").write_text("Final decision: **BUY**", encoding="utf-8")
 
     # MSFT run without decision file
     msft_dir = tmp_path / "MSFT" / "2026-01-02"
