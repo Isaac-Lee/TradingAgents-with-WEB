@@ -52,7 +52,7 @@ class CodexChatModel(BaseChatModel):
     def _run(self, command, *, env, cwd, input=None, timeout=None):
         try:
             result = subprocess.run(
-                command, input=input, text=True, capture_output=True,
+                command, input=input, text=True, encoding="utf-8", capture_output=True,
                 env=env, cwd=cwd, timeout=timeout or self.timeout, check=False,
             )
         except FileNotFoundError as exc:

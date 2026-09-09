@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,15 @@ from pydantic import BaseModel
 
 from tradingagents.llm_clients.codex_client import CodexChatModel
 from tradingagents.llm_clients.factory import create_llm_client
+
+
+def test_subprocess_unicode_round_trip(tmp_path):
+    result = CodexChatModel()._run(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read()); sys.stderr.buffer.write('시장 분석'.encode('utf-8'))"],
+        env=os.environ.copy(), cwd=tmp_path, input="ORCL 한글 분석 📊",
+    )
+    assert result.stdout == "ORCL 한글 분석 📊"
+    assert result.stderr == "시장 분석"
 
 
 @tool

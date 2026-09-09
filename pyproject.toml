@@ -47,12 +47,14 @@ bedrock = [
 
 [project.scripts]
 tradingagents = "cli.main:app"
+tradingagents-web = "webapp.server:main"
 
 [tool.setuptools.packages.find]
-include = ["tradingagents*", "cli*"]
+include = ["tradingagents*", "cli*", "webapp*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]
+webapp = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
