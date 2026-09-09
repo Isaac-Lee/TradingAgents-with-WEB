@@ -34,6 +34,7 @@ from tradingagents.dataflows.utils import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.reporting import write_report_tree
+from tradingagents.run_stats import StatsCallbackHandler
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -96,7 +97,8 @@ class TradingAgentsGraph:
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
-        self.callbacks = callbacks or []
+        self.stats_handler = StatsCallbackHandler()
+        self.callbacks = [*(callbacks or []), self.stats_handler]
 
         # Update the interface's config
         set_config(self.config)
@@ -175,7 +177,7 @@ class TradingAgentsGraph:
             if thinking_level:
                 kwargs["thinking_level"] = thinking_level
 
-        elif provider == "openai":
+        elif provider in {"openai", "codex"}:
             reasoning_effort = self.config.get("openai_reasoning_effort")
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
@@ -184,6 +186,10 @@ class TradingAgentsGraph:
             effort = self.config.get("anthropic_effort")
             if effort:
                 kwargs["effort"] = effort
+
+        if provider == "codex":
+            kwargs["codex_command"] = self.config.get("codex_command", "codex")
+            kwargs["codex_timeout"] = self.config.get("codex_timeout", 300)
 
         # Sampling temperature is cross-provider: forward it whenever set.
         # float() here so a value coming from a TRADINGAGENTS_TEMPERATURE env
@@ -418,6 +424,7 @@ class TradingAgentsGraph:
         PortfolioRating enum.
         """
         self.ticker = company_name
+        self.stats_handler.reset()
 
         # Resolve any pending memory-log entries for this ticker before the pipeline runs.
         self._resolve_pending_entries(company_name)
@@ -555,6 +562,9 @@ class TradingAgentsGraph:
         else:
             final_state = self.graph.invoke(graph_input, **args)
 
+        final_state["analysis_stats"] = self.stats_handler.get_stats()
+        final_state["analysis_stats"]["resumed"] = self._resuming
+
         # Store current state for reflection.
         self.curr_state = final_state
 
@@ -603,6 +613,7 @@ class TradingAgentsGraph:
             },
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
+            "analysis_stats": final_state.get("analysis_stats"),
         }
 
         # Save to file. Reject ticker values that would escape the

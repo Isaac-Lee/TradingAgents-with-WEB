@@ -128,6 +128,85 @@ For local models with Ollama:
 docker compose --profile ollama run --rm tradingagents-ollama
 ```
 
+### Codex / ChatGPT subscription (no LLM API key)
+
+Choose **Codex (ChatGPT subscription)** in the provider menu to use your saved
+Codex CLI login. The existing API providers remain available. This integration
+uses the official [`codex exec`](https://developers.openai.com/codex/noninteractive)
+command, including JSON output, and
+[ChatGPT authentication](https://developers.openai.com/codex/auth).
+
+Install a current Codex CLI (tested with 0.153.4; requires `--ignore-user-config`,
+`--ephemeral`, and `--output-schema`), then sign in with your ChatGPT account:
+
+```bash
+npm install -g @openai/codex
+codex login
+codex login status  # should say Logged in using ChatGPT
+```
+
+For environment-based configuration, set **both** model values:
+
+```bash
+export TRADINGAGENTS_LLM_PROVIDER=codex
+export TRADINGAGENTS_QUICK_THINK_LLM=default
+export TRADINGAGENTS_DEEP_THINK_LLM=default
+unset TRADINGAGENTS_LLM_BACKEND_URL
+python -m cli.main
+```
+
+`default` lets Codex select its default subscription model. You can instead set
+a model ID available to your Codex account. For Python usage:
+
+```python
+from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.graph.trading_graph import TradingAgentsGraph
+
+config = DEFAULT_CONFIG.copy()
+config.update(llm_provider="codex", quick_think_llm="default",
+              deep_think_llm="default", backend_url=None)
+graph = TradingAgentsGraph(config=config)
+state, decision = graph.propagate("AAPL", "2026-09-08")
+```
+
+The adapter launches one isolated CLI process per model turn. Conversation
+history and tool results are passed through stdin; application tools execute
+in TradingAgents, and typed decisions use LangChain's structured-output parser.
+Codex runs in a temporary directory with a read-only sandbox, shell and web search
+disabled, without loading your user config or project instructions. Authentication
+still uses the CLI's credential store / `CODEX_HOME`. API-key authentication is
+rejected, and inherited OpenAI API keys are removed from the child environment.
+
+Subscription usage limits still apply; this is not unlimited inference. Data
+vendors such as Alpha Vantage or FRED may still need their own keys. Full analysis
+can take longer than API mode because it starts a CLI process for every turn.
+Set `TRADINGAGENTS_CODEX_TIMEOUT` (seconds, default `300`) or
+`TRADINGAGENTS_CODEX_COMMAND` (executable path) as needed. Python config uses
+`codex_timeout` and `codex_command`. `openai_reasoning_effort` is supported;
+`temperature`, `max_tokens`, and `llm_max_retries` are ignored with a warning.
+CLI errors do not fall back to an API provider.
+
+Run isolated tests with `python -m pytest tests/test_codex_provider.py`. To opt
+into the live tool/structured-output smoke test (two subscription requests, using
+synthetic data), run:
+
+```bash
+TRADINGAGENTS_CODEX_LIVE_TEST=1 python -m pytest tests/test_codex_provider.py -k live_codex -q
+```
+
+The adapter returns complete messages rather than token-by-token output. It reads
+actual token usage from Codex JSON events, including cached input tokens (already
+included in the input count).
+
+Saved `complete_report.md` files include an **Analysis Usage** section with total,
+input, output and cached input tokens, LLM call count, and elapsed minutes/seconds.
+Both CLI and Python `propagate()` runs collect these metrics automatically;
+Python results and saved state JSON retain them in `analysis_stats`. Timing uses a
+monotonic clock from analysis start through model/data processing, excluding user
+selection and report-saving prompts. Missing usage is labeled unavailable or
+partial, never estimated as zero. On checkpoint resume, metrics cover only the
+current execution, explicitly excluding prior attempts.
+
 ### Required APIs
 
 TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:

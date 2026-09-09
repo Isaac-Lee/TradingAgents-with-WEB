@@ -20,7 +20,6 @@ from rich.table import Table
 from rich.text import Text
 
 from cli.announcements import display_announcements, fetch_announcements
-from cli.stats_handler import StatsCallbackHandler
 from cli.utils import (
     ask_anthropic_effort,
     ask_gemini_thinking_config,
@@ -49,7 +48,7 @@ from tradingagents.graph.analyst_execution import (
     sync_analyst_tracker_from_chunk,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.reporting import write_report_tree
+from tradingagents.reporting import format_analysis_stats, write_report_tree
 
 console = Console()
 
@@ -711,7 +710,7 @@ def get_user_selections():
             "Gemini thinking mode", "Step 8: Thinking Mode",
             "Configure Gemini thinking mode", ask_gemini_thinking_config,
         )
-    elif provider_lower == "openai":
+    elif provider_lower in {"openai", "codex"}:
         reasoning_effort = thinking_value_or_prompt(
             "TRADINGAGENTS_OPENAI_REASONING_EFFORT", "openai_reasoning_effort",
             "Reasoning effort", "Step 8: Reasoning Effort",
@@ -772,6 +771,7 @@ def display_complete_report(final_state):
 
     # I. Analyst Team Reports
     analysts = []
+    console.print(Markdown(format_analysis_stats(final_state.get("analysis_stats"))))
     if final_state.get("market_report"):
         analysts.append(("Market Analyst", final_state["market_report"]))
     if final_state.get("sentiment_report"):
@@ -1007,9 +1007,6 @@ def run_analysis(checkpoint: bool | None = None):
 
     config = _build_run_config(selections, checkpoint)
 
-    # Create stats callback handler for tracking LLM/tool calls
-    stats_handler = StatsCallbackHandler()
-
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
     selected_set = {analyst.value for analyst in selections["analysts"]}
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
@@ -1021,8 +1018,9 @@ def run_analysis(checkpoint: bool | None = None):
         selected_analyst_keys,
         config=config,
         debug=True,
-        callbacks=[stats_handler],
     )
+    stats_handler = graph.stats_handler
+    stats_handler.reset()
 
     # Initialize message buffer with selected analysts
     message_buffer.init_for_analysis(selected_analyst_keys)
@@ -1133,6 +1131,7 @@ def run_analysis(checkpoint: bool | None = None):
         checkpoint_tid = graph.begin_checkpoint(
             selections["ticker"], selections["analysis_date"], selections["asset_type"]
         )
+        resumed = graph._resuming
         if checkpoint_tid is not None:
             args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = checkpoint_tid
 
@@ -1257,6 +1256,8 @@ def run_analysis(checkpoint: bool | None = None):
         final_state = {}
         for chunk in trace:
             final_state.update(chunk)
+        final_state["analysis_stats"] = stats_handler.get_stats()
+        final_state["analysis_stats"]["resumed"] = resumed
 
         # Update all agent statuses to completed
         for agent in message_buffer.agent_status:

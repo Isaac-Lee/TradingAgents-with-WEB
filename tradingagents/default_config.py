@@ -8,6 +8,8 @@ _TRADINGAGENTS_HOME = os.path.join(os.path.expanduser("~"), ".tradingagents")
 # of the existing default, so users can keep writing plain strings in
 # their .env file.
 _ENV_OVERRIDES = {
+    "TRADINGAGENTS_CODEX_COMMAND":        "codex_command",
+    "TRADINGAGENTS_CODEX_TIMEOUT":        "codex_timeout",
     "TRADINGAGENTS_LLM_PROVIDER":         "llm_provider",
     "TRADINGAGENTS_DEEP_THINK_LLM":       "deep_think_llm",
     "TRADINGAGENTS_QUICK_THINK_LLM":      "quick_think_llm",
@@ -80,6 +82,9 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "memory_log_max_entries": None,
     # LLM settings
     "llm_provider": "openai",
+    # Codex subscription provider: executable on PATH and per-invocation deadline.
+    "codex_command": "codex",
+    "codex_timeout": 300.0,
     "deep_think_llm": "gpt-5.6",
     "quick_think_llm": "gpt-5.6-luna",
     # When None, each provider's client falls back to its own default endpoint

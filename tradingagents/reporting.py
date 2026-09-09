@@ -10,11 +10,37 @@ from datetime import datetime
 from pathlib import Path
 
 
+def format_analysis_stats(stats: dict | None) -> str:
+    """Render measured usage, explicitly distinguishing missing data from zero."""
+    if not stats:
+        return "## Analysis Usage\n\nToken usage and elapsed time: unavailable (not recorded)."
+    elapsed = stats.get("elapsed_seconds")
+    duration = "Unavailable" if elapsed is None else f"{int(elapsed // 60)}m {elapsed % 60:.1f}s ({elapsed:.2f} seconds)"
+    known = stats.get("usage_calls", 0) or stats.get("llm_calls") == 0
+    missing = stats.get("missing_usage_calls", 0)
+    rows = [
+        ("Elapsed time", duration),
+        ("Total tokens" if not missing else "Recorded tokens (partial)", f"{stats['total_tokens']:,}" if known else "Unavailable"),
+        ("Input tokens", f"{stats['tokens_in']:,}" if known else "Unavailable"),
+        ("Output tokens", f"{stats['tokens_out']:,}" if known else "Unavailable"),
+        ("Cached input tokens (included in input)", f"{stats.get('cached_input_tokens', 0):,}" if known else "Unavailable"),
+        ("LLM calls", str(stats.get("llm_calls", 0))),
+        ("Calls without usage data", str(missing)),
+    ]
+    table = "\n".join(f"| {label} | {value} |" for label, value in rows)
+    note = "Measured for this execution, including model calls and data retrieval; excludes report-saving prompts."
+    if stats.get("resumed"):
+        note += " Resumed run: earlier executions are NOT included in these totals."
+    if missing:
+        note += " Actual token usage may be higher; failed or unreported calls are not estimated."
+    return f"## Analysis Usage\n\n| Metric | Value |\n| --- | ---: |\n{table}\n\n{note}"
+
+
 def write_report_tree(final_state: dict, ticker: str, save_path) -> Path:
     """Save a completed run's reports to ``save_path``; return the complete-report path."""
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)
-    sections = []
+    sections = [format_analysis_stats(final_state.get("analysis_stats"))]
 
     # 1. Analysts
     analysts_dir = save_path / "1_analysts"
