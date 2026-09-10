@@ -8,9 +8,9 @@ import mimetypes
 import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
-from .service import JobStore, catalog, markdown, validate_request
+from .service import JobStore, catalog, company_logo, markdown, search_symbols, validate_request
 
 STATIC = Path(__file__).parent / "static"
 
@@ -55,6 +55,17 @@ def make_server(port, store, catalog_fn=catalog):
                     return self.respond(
                         200, {**catalog_fn(), "token": token, "preferences": store.preferences()}
                     )
+                if path == "/api/symbols":
+                    query = parse_qs(urlsplit(self.path).query).get("q", [""])[0].strip()
+                    if not query or len(query) > 100 or any(ord(c) < 32 for c in query):
+                        return self.respond(400, {"error": "종목명 또는 티커를 입력하세요."})
+                    return self.respond(200, {"results": search_symbols(query)})
+                if path == "/api/logo":
+                    symbol = parse_qs(urlsplit(self.path).query).get("symbol", [""])[0].upper()
+                    raw = company_logo(symbol)
+                    if raw is None:
+                        return self.respond(404, {"error": "로고 없음"}, extra={"Cache-Control": "private, max-age=3600"})
+                    return self.respond(200, raw, "image/png", {"Cache-Control": "private, max-age=86400"})
                 if path == "/api/jobs":
                     return self.respond(
                         200,
@@ -149,6 +160,11 @@ def make_server(port, store, catalog_fn=catalog):
                 parts = path.strip("/").split("/")
                 if len(parts) == 4 and parts[:2] == ["api", "jobs"] and parts[3] == "cancel":
                     return self.respond(200, store.cancel(parts[2]))
+                if len(parts) == 4 and parts[:2] == ["api", "jobs"] and parts[3] == "delete":
+                    try:
+                        return self.respond(200, store.delete_report(parts[2]))
+                    except ValueError:
+                        return self.respond(400, {"error": "가져온 보고서 또는 중단·실패한 분석만 삭제할 수 있습니다. 실행 중인 분석은 먼저 중지하세요."})
                 self.respond(404, {"error": "Not found"})
             except (ValueError, TypeError):
                 self.respond(

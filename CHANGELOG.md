@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes within the 0.x line are called out explicitly.
 
+## [Unreleased] — Web workspace update, 2026-09-11
+
+### Added
+
+- macOS/Linux web launcher alongside the existing Windows launcher.
+- Local report-folder import with original-byte captures, SHA-256 provenance,
+  and duplicate detection.
+- Glass-style workspace, custom keyboard-accessible selection menus, and an SVG favicon.
+- Yahoo Finance instrument search, cleaned display names, company logos, and index flags.
+- Default candlestick charts, a line toggle, 1W/1M/3M/1Y periods, and formatted
+  crosshair tooltips with keyboard navigation.
+- Soft deletion for imported reports and interrupted, cancelled, or failed analyses;
+  active analyses cannot be deleted, and saved source files are preserved.
+
+### Changed
+
+- Default the web provider to Codex and align its explicit model choices with
+  OpenAI, including GPT-6 Astra. Model availability still depends on the provider/account.
+- Store OHLC data for a year and use instrument display names in report headings.
+- Clarify deletion errors instead of showing unrelated model/input guidance.
+
 ## [0.4.0] — 2026-08-31
 
 Look-ahead and point-in-time fixes across the data and memory layers, clearer

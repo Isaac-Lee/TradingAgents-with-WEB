@@ -9,7 +9,34 @@ from urllib.request import Request, urlopen
 import pytest
 
 from webapp.server import make_server
-from webapp.service import JobStore, markdown, validate_request
+from webapp.service import JobStore, markdown, market_data, validate_request
+
+
+def test_market_data_preserves_ohlc_and_excludes_future_bars(monkeypatch):
+    from types import SimpleNamespace
+
+    import pandas as pd
+    import yfinance as yf
+
+    frame = pd.DataFrame(
+        {"Open": [10, float("nan"), 40], "High": [14, 15, 42],
+         "Low": [9, 11, 38], "Close": [12, 13, 41], "Volume": [100, 200, 300]},
+        index=pd.to_datetime(["2026-08-25", "2026-08-26", "2026-08-27"]),
+    )
+    def history(**kwargs):
+        assert kwargs["start"] == "2025-08-25"
+        assert kwargs["end"] == "2026-08-27"
+        return frame
+
+    monkeypatch.setattr(yf, "Ticker", lambda symbol: SimpleNamespace(
+        history=history, history_metadata={"currency": "USD"}))
+    data = market_data("ORCL", "2026-08-26")
+    assert data["bars"] == [
+        {"date": "2026-08-25", "open": 10, "high": 14, "low": 9, "close": 12, "volume": 100},
+        {"date": "2026-08-26", "open": None, "high": 15, "low": 11, "close": 13, "volume": 200},
+    ]
+    assert data["currency"] == "USD"
+    json.dumps(data, allow_nan=False)
 
 
 def config(**changes):
@@ -163,6 +190,23 @@ def test_http_origin_token_static_boundary(tmp_path):
         with request("/") as response:
             assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
             assert b"live.css" in response.read()
+        store.save({"id": "imported", "status": "imported", "config": config(), "reports": {}})
+        with pytest.raises(HTTPError) as exc:
+            request("/api/jobs/imported/delete", {})
+        assert exc.value.code == 403
+        with request("/api/jobs/imported/delete", {}, {"X-Workspace-Token": token}) as response:
+            assert json.load(response) == {"id": "imported", "deleted": True}
+        with pytest.raises(KeyError):
+            store.get("imported")
+        store.save({"id": "stopped", "status": "interrupted", "reports": {}})
+        with request("/api/jobs/stopped/delete", {}, {"X-Workspace-Token": token}) as response:
+            assert json.load(response)["deleted"] is True
+        store.save({"id": "active", "status": "running", "reports": {}})
+        with pytest.raises(HTTPError) as exc:
+            request("/api/jobs/active/delete", {}, {"X-Workspace-Token": token})
+        assert exc.value.code == 400
+        assert "먼저 중지" in json.load(exc.value)["error"]
+        assert store.get("active")["status"] == "running"
     finally:
         server.shutdown()
         server.server_close()
@@ -207,3 +251,31 @@ def test_propagate_stream_callback_preserves_finalization():
     assert state["market_report"] == "report" and signal == "Hold"
     graph.memory_log.store_decision.assert_called_once()
     graph.clear_checkpoint_on_success.assert_called_once()
+
+
+@pytest.mark.parametrize('status', ['interrupted', 'cancelled', 'failed'])
+def test_delete_stopped_analysis_preserves_report(tmp_path, status):
+    store = JobStore(tmp_path)
+    try:
+        job = {'id': 'stopped', 'status': status, 'reports': {'market_report': 'Saved analysis'}}
+        store.save(job)
+        assert store.delete_report('stopped') == {'id': 'stopped', 'deleted': True}
+        with pytest.raises(KeyError):
+            store.get('stopped')
+        archived = store.db.execute('SELECT body FROM trashed_jobs WHERE id=?', ('stopped',)).fetchone()
+        assert json.loads(archived[0]) == job
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize('status', ['queued', 'running', 'cancelling'])
+def test_delete_rejects_active_analysis(tmp_path, status):
+    store = JobStore(tmp_path)
+    try:
+        job = {'id': 'active', 'status': status}
+        store.save(job)
+        with pytest.raises(ValueError):
+            store.delete_report('active')
+        assert store.get('active') == job
+    finally:
+        store.close()

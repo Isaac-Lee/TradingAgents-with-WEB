@@ -195,6 +195,10 @@ def test_config_cli_registration():
     assert ensure_api_key("codex") is None
     assert provider_default_url("codex") is None
     assert get_model_options("codex", "quick")[0][1] == "default"
+    for mode in ("quick", "deep"):
+        assert "gpt-6-astra" in {value for _, value in get_model_options("codex", mode)}
+        assert [option for option in get_model_options("codex", mode)
+                if option[1] not in {"default", "custom"}] == get_model_options("openai", mode)
     assert _apply_env_overrides(DEFAULT_CONFIG.copy())["codex_timeout"] > 0
 
 

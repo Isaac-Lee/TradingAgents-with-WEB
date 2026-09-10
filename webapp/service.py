@@ -10,6 +10,7 @@ import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
 REPORT_FIELDS = (
@@ -68,6 +69,11 @@ def validate_request(data, providers):
         "analysts": analysts,
         "depth": depth,
     }
+    name = data.get("symbolName", "")
+    if not isinstance(name, str) or len(name) > 160 or any(ord(c) < 32 for c in name):
+        raise ValueError("종목명을 확인하세요.")
+    if name.strip():
+        result["symbolName"] = name.strip()
     for key in ("quickModel", "deepModel"):
         model = data.get(key, "")
         if (
@@ -110,6 +116,9 @@ class JobStore:
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY, body TEXT NOT NULL)"
         )
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS trashed_jobs (id TEXT PRIMARY KEY, body TEXT NOT NULL, deleted_at TEXT NOT NULL)"
+        )
         self.db.commit()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="research")
         self.runner = runner or run_graph
@@ -150,6 +159,19 @@ class JobStore:
             job = self.get(job_id)
             job.update(changes, updated=now())
             return self.save(job)
+
+    def delete_report(self, job_id):
+        with self.lock:
+            job = self.get(job_id)
+            if job["status"] not in {"imported", "interrupted", "cancelled", "failed"}:
+                raise ValueError("가져온 보고서 또는 중단·실패한 분석만 삭제할 수 있습니다.")
+            with self.db:
+                self.db.execute(
+                    "INSERT OR REPLACE INTO trashed_jobs VALUES (?, ?, ?)",
+                    (job_id, json.dumps(job, ensure_ascii=False), now()),
+                )
+                self.db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+            return {"id": job_id, "deleted": True}
 
     def preferences(self, value=None):
         with self.lock:
@@ -286,7 +308,7 @@ def market_data(symbol, day):
         end = date.fromisoformat(day)
         ticker = yf.Ticker(symbol)
         frame = ticker.history(
-            start=(end - timedelta(days=100)).isoformat(),
+            start=(end - timedelta(days=366)).isoformat(),
             end=(end + timedelta(days=1)).isoformat(),
             auto_adjust=False,
             timeout=15,
@@ -299,6 +321,11 @@ def market_data(symbol, day):
                     {
                         "date": stamp.date().isoformat(),
                         "close": close,
+                        **{
+                            name.lower(): float(row[name])
+                            if math.isfinite(float(row[name])) else None
+                            for name in ("Open", "High", "Low")
+                        },
                         "volume": int(row["Volume"])
                         if math.isfinite(float(row["Volume"]))
                         else None,
@@ -315,6 +342,56 @@ def market_data(symbol, day):
             "source": "Yahoo Finance",
             "error": "가격 데이터를 가져오지 못했습니다.",
         }
+
+
+def search_symbols(query):
+    """Return Yahoo Finance instrument names; never send report contents."""
+    import yfinance as yf
+
+    quotes = yf.Search(query, max_results=8, news_count=0, lists_count=0,
+                       recommended=0, timeout=8).quotes
+    results = []
+    for quote in quotes:
+        symbol = str(quote.get("symbol", "")).upper()
+        name = quote.get("longname") or quote.get("shortname") or symbol
+        if (not re.fullmatch(r"[A-Z0-9^][A-Z0-9._=^-]{0,31}", symbol)
+                or ".." in symbol or not isinstance(name, str)):
+            continue
+        # Yahoo can give common and preferred shares the same long name.
+        # Retain its share-class qualifier without exposing the ticker.
+        share_class = re.search(r"\((\d+P)\)$", str(quote.get("shortname", "")))
+        if share_class:
+            name = f"{display_name({'symbolName': name})} ({share_class[1]})"
+        results.append({
+            "symbol": symbol,
+            "name": " ".join(name.split())[:160],
+            "exchange": str(quote.get("exchDisp", "")),
+            "type": str(quote.get("quoteType", "")),
+        })
+    return results
+
+
+@lru_cache(maxsize=128)
+def company_logo(symbol):
+    """Fetch a bounded PNG from a fixed public logo host; cache missing logos too."""
+    from urllib.parse import quote
+
+    import requests
+
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9._-]{0,31}", symbol) or ".." in symbol:
+        return None
+    try:
+        response = requests.get(
+            f"https://financialmodelingprep.com/image-stock/{quote(symbol, safe='')}.png",
+            timeout=6,
+        )
+        response.raise_for_status()
+        raw = response.content
+        if len(raw) <= 1_000_000 and raw.startswith(b"\x89PNG\r\n\x1a\n"):
+            return raw
+    except requests.RequestException:
+        pass
+    return None
 
 
 def catalog():
@@ -351,18 +428,29 @@ def catalog():
     return {
         "providers": providers,
         "defaults": {
-            "provider": DEFAULT_CONFIG["llm_provider"],
-            "quickModel": DEFAULT_CONFIG["quick_think_llm"],
-            "deepModel": DEFAULT_CONFIG["deep_think_llm"],
+            "provider": "codex",
+            "quickModel": "default",
+            "deepModel": "default",
         },
         "today": date.today().isoformat(),
     }
 
 
+def display_name(config):
+    """Strip trailing legal suffixes for display without altering the saved name."""
+    name = config.get("symbolName") or "종목"
+    suffix = r"(?:[,\s]+)(?:co\.?[,]?\s*ltd\.?|incorporated|corporation|limited|inc\.?|corp\.?|ltd\.?|llc\.?|plc\.?|co\.?)\s*$"
+    while True:
+        cleaned = re.sub(suffix, "", name, flags=re.IGNORECASE).rstrip(" ,.")
+        if cleaned == name or not cleaned:
+            return name
+        name = cleaned
+
+
 def markdown(job):
     cfg = job["config"]
     lines = [
-        f"# {cfg['symbol']} · {cfg['date']}",
+        f"# {display_name(cfg)} · {cfg['date']}",
         f"Status: {job['status']}",
         f"Provider: {cfg['provider']}",
         f"Signal: {job.get('signal') or 'Unavailable'}",

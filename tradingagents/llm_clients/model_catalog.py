@@ -96,18 +96,16 @@ _MINIMAX_MODELS: dict[str, list[ModelOption]] = {
 
 
 MODEL_OPTIONS: ProviderModeOptions = {
-    "codex": {
-        "quick": [("Codex default (ChatGPT subscription)", "default"), ("Custom model ID", "custom")],
-        "deep": [("Codex default (ChatGPT subscription)", "default"), ("Custom model ID", "custom")],
-    },
     "openai": {
         "quick": [
             ("GPT-5.6 Luna - Fast, cost-efficient frontier", "gpt-5.6-luna"),
+            ("GPT-6 Astra", "gpt-6-astra"),
             ("GPT-5.6 Terra - Balances intelligence and cost", "gpt-5.6-terra"),
             ("GPT-5.4 Mini - Fast, strong coding and tool use", "gpt-5.4-mini"),
         ],
         "deep": [
             ("GPT-5.6 - Latest frontier reasoning (Sol)", "gpt-5.6"),
+            ("GPT-6 Astra", "gpt-6-astra"),
             ("GPT-5.6 Terra - Balances intelligence and cost", "gpt-5.6-terra"),
             ("GPT-5.5 - Previous-gen frontier, 1M context", "gpt-5.5"),
             ("GPT-5.4 - Cost-effective, 1M context", "gpt-5.4"),
@@ -209,6 +207,13 @@ MODEL_OPTIONS: ProviderModeOptions = {
     "nvidia": _CUSTOM_ONLY,
     # Bedrock model IDs / cross-region inference profile IDs are user-specified.
     "bedrock": _CUSTOM_ONLY,
+}
+
+
+# Keep the requested explicit model choices aligned across both transports.
+MODEL_OPTIONS["codex"] = {
+    mode: [("Codex CLI default", "default"), *options, ("Custom model ID", "custom")]
+    for mode, options in MODEL_OPTIONS["openai"].items()
 }
 
 
